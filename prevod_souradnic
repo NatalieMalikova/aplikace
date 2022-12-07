@@ -1,0 +1,76 @@
+import sys
+
+from PyQt5.QtCore import QSettings, pyqtSignal
+from PyQt5.QtWidgets import (QPushButton, QApplication, QWidget, QMainWindow, QTextEdit, QFormLayout)
+
+from osgeo import ogr
+from osgeo import osr
+
+
+class MainWindow(QMainWindow):
+    btn = pyqtSignal()
+
+    def __init__(self, parent: object = None) -> object:
+        QMainWindow.__init__(self, parent)
+
+        self.vysledek = None
+        self.inputY = None
+        self.inputX = None
+        self.setWindowTitle("Převod souřadnicového systému")
+        self.settings = QSettings()
+        self.setMaximumSize(500,300 )
+        self.ds = None
+        self.init_gui()
+
+    def init_gui(self):
+        widget = QWidget()
+        self.setCentralWidget(widget)
+        layout = QFormLayout()
+        widget.setLayout(layout)
+
+        self.inputX = QTextEdit()
+        self.inputY = QTextEdit()
+
+        layout.addRow("Souřadnice X", self.inputX)
+        layout.addRow("Souřadnice Y", self.inputY)
+
+        self.vysledek = QTextEdit()
+        self.vysledek.setReadOnly(True)
+        layout.addRow("Výsledek:", self.vysledek)
+
+        btn = QPushButton("Převeď souřadnice", self)
+        btn.resize(btn.sizeHint())
+        layout.addWidget(btn)
+        btn.clicked.connect(self.projekce)
+
+    def projekce(self):
+        pointX = self.inputX.toPlainText()
+        pointY = self.inputY.toPlainText()
+
+        # referenční systém
+        spatialRef = osr.SpatialReference()
+        spatialRef.ImportFromEPSG(2927)
+
+        source = osr.SpatialReference()
+        source.ImportFromEPSG(2927)
+
+        target = osr.SpatialReference()
+        target.ImportFromEPSG(4326)
+
+        # create a geometry from coordinates
+        point: ogr.Geometry = ogr.CreateGeometryFromWkt(f"POINT ({pointX} {pointY})")
+
+        # coordtransform
+        transform = osr.CoordinateTransformation(source, target)
+
+        # transform point
+        point.Transform(transform)
+
+        self.vysledek.setText(point.ExportToWkt())
+
+
+if __name__ == "__main__":
+    app = QApplication([])
+    o = MainWindow()
+    o.show()
+    sys.exit(app.exec())
